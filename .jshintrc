@@ -1,7 +1,9 @@
 {
   "globals": {
-    "console": false
+    "console": false,
+    "TurndownService": true
   },
+  "esnext": true,
   "bitwise": true,
   "camelcase": false,
   "curly": false,

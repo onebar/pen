@@ -7,16 +7,16 @@
 
   // allow command list
   var commandsReg = {
-    block: /^(?:p|h[1-6]|blockquote|pre)$/,
+    block: /^(?:p|h[1-6]|blockquote)$/,
     inline: /^(?:bold|italic|underline|insertorderedlist|insertunorderedlist|indent|outdent)$/,
     source: /^(?:createlink|unlink)$/,
     insert: /^(?:inserthorizontalrule|insertimage|insert)$/,
     wrap: /^(?:code)$/
   };
 
-  var lineBreakReg = /^(?:blockquote|pre|div)$/i;
+  var lineBreakReg = /^(?:blockquote|pre|div|code)$/i;
 
-  var effectNodeReg = /(?:[pubia]|h[1-6]|blockquote|[uo]l|li)/i;
+  var effectNodeReg = /(?:[pubia]|h[1-6]|blockquote|[uo]l|li|code)/i;
 
   var strReg = {
     whiteSpace: /(^\s+)|(\s+$)/g,
@@ -144,7 +144,7 @@
 
   function commandLink(ctx, tag, value) {
     if (ctx.config.linksInNewWindow) {
-      value = '< a href="' + value + '" target="_blank">' + (selection.toString()) + '</a>';
+      value = '<a href="' + value + '" target="_blank">' + (selection.toString()) + '</a>';
       return commandOverall(ctx, 'insertHTML', value);
     } else {
       return commandOverall(ctx, tag, value);
@@ -230,18 +230,6 @@
 
     addListener(ctx, editor, 'keyup', function(e) {
       if (e.which === 8 && ctx.isEmpty()) return lineBreak(ctx, true);
-      // toggle toolbar on key select
-      if (e.which !== 13 || e.shiftKey) return updateStatus(400);
-      var node = getNode(ctx, true);
-      if (!node || !node.nextSibling || !lineBreakReg.test(node.nodeName)) return;
-      if (node.nodeName !== node.nextSibling.nodeName) return;
-      // hack for webkit, make 'enter' behavior like as firefox.
-      if (node.lastChild.nodeName !== 'BR') node.appendChild(doc.createElement('br'));
-      utils.forEach(node.nextSibling.childNodes, function(child) {
-        if (child) node.appendChild(child);
-      }, true);
-      node.parentNode.removeChild(node.nextSibling);
-      focusNode(ctx, node.lastChild, ctx.getRange());
     });
 
     // check line break
@@ -250,14 +238,13 @@
       if (e.which !== 13 || e.shiftKey) return;
       var node = getNode(ctx, true);
       if (!node || !lineBreakReg.test(node.nodeName)) return;
-      var lastChild = node.lastChild;
-      if (!lastChild || !lastChild.previousSibling) return;
-      if (lastChild.previousSibling.textContent || lastChild.textContent) return;
+      if (node.nodeName === 'CODE') {
+        node = node.parentNode;
+      }
       // quit block mode for 2 'enter'
       e.preventDefault();
       var p = doc.createElement('p');
       p.innerHTML = '<br>';
-      node.removeChild(lastChild);
       if (!node.nextSibling) node.parentNode.appendChild(p);
       else node.parentNode.insertBefore(p, node.nextSibling);
       focusNode(ctx, p, ctx.getRange());
@@ -409,7 +396,7 @@
 
   function getNode(ctx, byRoot) {
     var node, root = ctx.config.editor;
-    ctx._range = ctx._range || ctx.getRange();
+    ctx._range = ctx.getRange();
     node = ctx._range.commonAncestorContainer;
     if (!node || node === root) return null;
     while (node && (node.nodeType !== 1) && (node.parentNode !== root)) node = node.parentNode;
@@ -480,6 +467,45 @@
     node.style.display = hide ? 'none' : 'block';
   }
 
+  function nextNode(node) {
+    if (node.hasChildNodes()) {
+      return node.firstChild;
+    } else {
+      while (node && !node.nextSibling) {
+        node = node.parentNode;
+      }
+      if (!node) {
+        return null;
+      }
+      return node.nextSibling;
+    }
+  }
+
+  function getRangeSelectedNodes(range) {
+    var node = range.startContainer;
+    var endNode = range.endContainer;
+
+    // Special case for a range that is contained within a single node
+    if (node === endNode) {
+      return [node];
+    }
+
+    // Iterate nodes until we hit the end container
+    var rangeNodes = [];
+    while (node && node !== endNode) {
+      rangeNodes.push(node = nextNode(node));
+    }
+
+    // Add partially selected nodes at the start of the range
+    node = range.startContainer;
+    while (node && node !== range.commonAncestorContainer) {
+      rangeNodes.unshift(node);
+      node = node.parentNode;
+    }
+
+    return rangeNodes;
+  }
+
   Pen = function(config) {
 
     if (!config) throw new Error('Can\'t find config');
@@ -541,7 +567,7 @@
     var form = inputElement.form;
     var me = this;
     form.addEventListener("submit", function() {
-      inputElement.value = me.config.saveAsMarkdown ? me.toMd(me.config.editor.innerHTML) : me.config.editor.innerHTML;
+      inputElement.value = me.config.editor.innerHTML;
     });
   };
 
@@ -599,18 +625,55 @@
 
   Pen.prototype.execCommand = function(name, value) {
     name = name.toLowerCase();
-    this.setRange();
 
-    if (commandsReg.block.test(name)) {
+    if (name === 'codeblock') {
+      this.selection.focusNode.innerHTML = '<code><br></code>';
+      commandBlock(this, 'pre');
+    } else if (commandsReg.block.test(name)) {
       commandBlock(this, name);
     } else if (commandsReg.inline.test(name)) {
       commandOverall(this, name, value);
     } else if (commandsReg.source.test(name)) {
+      this.setRange();
       commandLink(this, name, value);
     } else if (commandsReg.insert.test(name)) {
+      this.setRange();
       commandInsert(this, name, value);
     } else if (commandsReg.wrap.test(name)) {
-      commandWrap(this, name, value);
+      let selectedNodes = getRangeSelectedNodes(this.selection.getRangeAt(0));
+      let selectedParagraphs = 0;
+      utils.forEach(selectedNodes, function(item) {
+        if (item.nodeName === 'P') {
+          selectedParagraphs++;
+        }
+      });
+      if (selectedParagraphs < 2) {
+        // TODO: this.selection.focusNode works weird if FF, double click on word selects word/element to the right of target
+        let effects = effectNode(this, this.selection.focusNode);
+        let codeNode;
+        utils.forEach(effects, function(item) {
+          if (item.nodeName === 'CODE') {
+            codeNode = item;
+          }
+        });
+        if (codeNode) {
+          // FF does not support removeFormat
+          if (!commandOverall(this, 'removeFormat')) {
+            let unwrappedNodes = doc.createDocumentFragment();
+            utils.forEach(codeNode.childNodes, function(item) {
+              unwrappedNodes.appendChild(item.cloneNode());
+            });
+            codeNode.replaceWith(unwrappedNodes);
+          }
+        } else {
+          /**
+           * TODO: does not work when selecting the last element
+           * for some reasons instead of adding <code>value</code>
+           * browsers (FF, Chrome) add <span styles="styles">value</span>
+           */
+          commandWrap(this, name, value);
+        }
+      }
     } else {
       utils.log('can not find command function for name: ' + name + (value ? (', value: ' + value) : ''), true);
     }
@@ -647,6 +710,8 @@
   };
 
   // highlight menu
+
+  // TODO: do not display some actions if selection is inside code block (this is how it works in Slack)
   Pen.prototype.highlight = function() {
     var toolbar = this._toolbar || this._menu
       , node = getNode(this);
@@ -817,36 +882,14 @@
     defaults.editor.innerHTML = defaults.textarea;
     return defaults.editor;
   };
-
-  // export content as markdown
-  var regs = {
-    a: [/<a\b[^>]*href=["']([^"]+|[^']+)\b[^>]*>(.*?)<\/a>/ig, '[$2]($1)'],
-    img: [/<img\b[^>]*src=["']([^\"+|[^']+)[^>]*>/ig, '![]($1)'],
-    b: [/<b\b[^>]*>(.*?)<\/b>/ig, '**$1**'],
-    i: [/<i\b[^>]*>(.*?)<\/i>/ig, '***$1***'],
-    h: [/<h([1-6])\b[^>]*>(.*?)<\/h\1>/ig, function(a, b, c) {
-      return '\n' + ('######'.slice(0, b)) + ' ' + c + '\n';
-    }],
-    li: [/<(li)\b[^>]*>(.*?)<\/\1>/ig, '* $2\n'],
-    blockquote: [/<(blockquote)\b[^>]*>(.*?)<\/\1>/ig, '\n> $2\n'],
-    pre: [/<pre\b[^>]*>(.*?)<\/pre>/ig, '\n```\n$1\n```\n'],
-    code: [/<code\b[^>]*>(.*?)<\/code>/ig, '\n`\n$1\n`\n'],
-    p: [/<p\b[^>]*>(.*?)<\/p>/ig, '\n$1\n'],
-    hr: [/<hr\b[^>]*>/ig, '\n---\n']
-  };
-
   Pen.prototype.toMd = function() {
-    var html = this.getContent()
-          .replace(/\n+/g, '') // remove line break
-          .replace(/<([uo])l\b[^>]*>(.*?)<\/\1l>/ig, '$2'); // remove ul/ol
-
-    for(var p in regs) {
-      if (regs.hasOwnProperty(p))
-        html = html.replace.apply(html, regs[p]);
-    }
-    return html.replace(/\*{5}/g, '**');
+    var html = this.getContent();
+    var turndownService = new TurndownService({
+      codeBlockStyle: 'fenced',
+      headingStyle: 'atx',
+    });
+    return turndownService.turndown(html);
   };
-
   // make it accessible
   if (doc.getSelection) {
     selection = doc.getSelection();
