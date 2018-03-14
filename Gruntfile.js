@@ -1,4 +1,5 @@
 /* global module: false */
+
 module.exports = function(grunt) {
   "use strict";
 
@@ -15,14 +16,49 @@ module.exports = function(grunt) {
 
     uglify: {
       build: {
-        src: 'src/**/*.js',
-        dest: 'build/pen-<%= pkg.version %>.min.js'
+        src: 'dist/**/*.js',
+        dest: 'dist/pen-<%= pkg.version %>.min.js'
       }
     },
 
     watch: {
       files: ['<%= jshint.files %>'],
       tasks: ['jshint']
+    },
+
+    babel: {
+      options: {
+        sourceMap: true,
+        presets: ['env']
+      },
+      dist: {
+        files: [
+          {
+            expand: true,
+            cwd: 'dist/',
+            src: ['*.js'],
+            dest: 'dist/'
+          }
+        ]
+      }
+    },
+    concat: {
+      options: {
+        separator: ';',
+      },
+      turndown: {
+        src: ['node_modules/turndown/dist/turndown.js', 'dist/pen.js'],
+        dest: 'dist/pen.js',
+      }
+    },
+    copy: {
+      pen: {
+        expand: true,
+        cwd: 'src',
+        filter: 'isFile',
+        src: ['**'],
+        dest: 'dist/',
+      }
     }
   });
 
@@ -30,8 +66,11 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-babel');
+  grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-copy');
 
   // Default task(s).
-  grunt.registerTask('default', ['jshint', 'uglify']);
+  grunt.registerTask('default', ['jshint', 'copy:pen', 'concat:turndown', 'babel', 'uglify']);
 
 };

@@ -1,16 +1,18 @@
+'use strict';
+
 /*! Licensed under MIT, https://github.com/sofish/pen */
-(function(root) {
+(function (root) {
 
   // only works with Pen
   if (!root.Pen) return;
 
   // markdown converter obj
-  let converter = {};
+  var converter = {};
 
   // return valid markdown syntax
-  converter.valid = function(str) {
+  converter.valid = function (str) {
     if (['#', '##', '###', '####', '#####', '######'].includes(str)) {
-      return `h${str.length}`;
+      return 'h' + str.length;
     } else if (str === '```') {
       return 'codeblock';
     } else if (str === '>') {
@@ -25,10 +27,11 @@
   };
 
   // exec command
-  converter.action = function(pen, cmd) {
-    let { focusNode } = pen.selection;
+  converter.action = function (pen, cmd) {
+    var focusNode = pen.selection.focusNode;
+
     if (focusNode.parentNode !== pen.config.editor) {
-      if (focusNode.textContent.length ===  pen.selection.getRangeAt(0).endOffset) {
+      if (focusNode.textContent.length === pen.selection.getRangeAt(0).endOffset) {
         focusNode.parentNode.innerHTML = '<br>';
       } else {
         focusNode.textContent = focusNode.textContent.slice(pen.selection.getRangeAt(0).startOffset);
@@ -38,15 +41,19 @@
   };
 
   // init converter
-  converter.init = function(pen) {
-    pen.on('keypress', function(e) {
-      let code = e.keyCode || e.which;
+  converter.init = function (pen) {
+    pen.on('keypress', function (e) {
+      var code = e.keyCode || e.which;
       if (code === 32) {
-        let range = pen.getRange();
-        let { startContainer, endContainer, startOffset, endOffset } = range;
-        let { nodeValue } = pen.selection.focusNode;
+        var range = pen.getRange();
+        var startContainer = range.startContainer,
+            endContainer = range.endContainer,
+            startOffset = range.startOffset,
+            endOffset = range.endOffset;
+        var nodeValue = pen.selection.focusNode.nodeValue;
+
         if (startContainer === endContainer && startOffset === endOffset && nodeValue) {
-          let cmd = converter.valid(nodeValue.slice(0, startOffset));
+          var cmd = converter.valid(nodeValue.slice(0, startOffset));
           if (cmd) {
             // prevents leading space after executing command
             e.preventDefault();
@@ -59,5 +66,5 @@
 
   // append to Pen
   root.Pen.prototype.markdown = converter;
-
-}(window));
+})(window);
+//# sourceMappingURL=markdown.js.map
