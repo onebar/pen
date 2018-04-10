@@ -1,0 +1,19 @@
+{
+  "parser": "babel-eslint",
+  "extends": [
+    "@upsilon/eslint-config/base",
+    "prettier"
+  ],
+  "plugins": ["prettier"],
+  "rules": {
+    "prettier/prettier": "error",
+    "no-console": 1,
+    "prefer-const": [
+      "error",
+      {
+        "destructuring": "any",
+        "ignoreReadBeforeAssign": true
+      }
+    ]
+  }
+}
