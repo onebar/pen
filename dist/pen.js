@@ -876,12 +876,11 @@ var TurndownService = function () {
   return TurndownService;
 }();
 ; /*! Licensed under MIT, https://github.com/sofish/pen */
+/* global TurndownService */
 (function (root, doc) {
-
-  var Pen,
-      debugMode,
-      selection,
-      utils = {};
+  var debugMode = void 0;
+  var selection = void 0;
+  var utils = {};
   var toString = Object.prototype.toString;
   var slice = Array.prototype.slice;
 
@@ -933,8 +932,15 @@ var TurndownService = function () {
   // copy props from a obj
   utils.copy = function (defaults, source) {
     utils.forEach(source, function (value, key) {
-      defaults[key] = utils.is(value, 'Object') ? utils.copy({}, value) : utils.is(value, 'Array') ? utils.copy([], value) : value;
+      if (utils.is(value, 'Object')) {
+        defaults[key] = utils.copy({}, value);
+      } else if (utils.is(value, 'Array')) {
+        defaults[key] = utils.copy([], value);
+      } else {
+        defaults[key] = value;
+      }
     });
+
     return defaults;
   };
 
@@ -945,6 +951,7 @@ var TurndownService = function () {
 
   utils.delayExec = function (fn) {
     var timer = null;
+
     return function (delay) {
       clearTimeout(timer);
       timer = setTimeout(function () {
@@ -955,7 +962,6 @@ var TurndownService = function () {
 
   // merge: make it easy to have a fallback
   utils.merge = function (config) {
-
     // default settings
     var defaults = {
       class: 'pen',
@@ -984,7 +990,7 @@ var TurndownService = function () {
   };
 
   function commandOverall(ctx, cmd, val) {
-    var message = ' to exec 「' + cmd + '」 command' + (val ? ' with value: ' + val : '');
+    var message = ' to exec \u300C' + cmd + '\u300D command' + (val ? ' with value: ' + val : '');
 
     try {
       doc.execCommand(cmd, false, val);
@@ -998,6 +1004,7 @@ var TurndownService = function () {
 
   function commandInsert(ctx, name, val) {
     var node = getNode(ctx);
+
     if (!node) return;
     ctx._range.selectNode(node);
     ctx._range.collapse(false);
@@ -1010,18 +1017,22 @@ var TurndownService = function () {
 
   function commandBlock(ctx, name) {
     var list = effectNode(ctx, getNode(ctx), true);
+
     if (list.indexOf(name) !== -1) name = 'p';
+
     return commandOverall(ctx, 'formatblock', name);
   }
 
   function commandWrap(ctx, tag, value) {
     value = '<' + tag + '>' + (value || selection.toString()) + '</' + tag + '>';
+
     return commandOverall(ctx, 'insertHTML', value);
   }
 
   function commandLink(ctx, tag, value) {
     if (ctx.config.linksInNewWindow) {
       value = '<a href="' + value + '" target="_blank">' + selection.toString() + '</a>';
+
       return commandOverall(ctx, 'insertHTML', value);
     } else {
       return commandOverall(ctx, tag, value);
@@ -1029,15 +1040,17 @@ var TurndownService = function () {
   }
 
   function initToolbar(ctx) {
-    var icons = '',
-        inputStr = '<input class="pen-input" placeholder="http://" />';
+    var icons = '';
+    var inputStr = '<input class="pen-input" placeholder="http://" />';
 
     ctx._toolbar = ctx.config.toolbar;
     if (!ctx._toolbar) {
       var toolList = ctx.config.list;
+
       utils.forEach(toolList, function (name) {
         var klass = 'pen-icon icon-' + name;
         var title = ctx.config.titles[name] || '';
+
         icons += '<i class="' + klass + '" data-action="' + name + '" title="' + title + '"></i>';
       }, true);
       if (toolList.indexOf('createlink') >= 0 || toolList.indexOf('insertimage') >= 0) icons += inputStr;
@@ -1057,8 +1070,8 @@ var TurndownService = function () {
   }
 
   function initEvents(ctx) {
-    var toolbar = ctx._toolbar || ctx._menu,
-        editor = ctx.config.editor;
+    var toolbar = ctx._toolbar || ctx._menu;
+    var editor = ctx.config.editor;
 
     var toggleMenu = utils.delayExec(function () {
       ctx.highlight().menu();
@@ -1081,6 +1094,7 @@ var TurndownService = function () {
 
       // toggle toolbar on mouse select
       var selecting = false;
+
       addListener(ctx, editor, 'mousedown', function () {
         selecting = true;
       });
@@ -1094,7 +1108,7 @@ var TurndownService = function () {
       });
       // Hide menu when focusing outside of editor
       _outsideClick = function outsideClick(e) {
-        if (ctx._menu && !containsNode(editor, e.target) && !containsNode(ctx._menu, e.target)) {
+        if (ctx._menu && ctx._menu.style.display === 'block' && !containsNode(editor, e.target) && !containsNode(ctx._menu, e.target)) {
           removeListener(ctx, doc, 'click', _outsideClick);
           toggleMenu(100);
         }
@@ -1114,6 +1128,7 @@ var TurndownService = function () {
       editor.classList.remove('pen-placeholder');
       if (e.which !== 13 || e.shiftKey) return;
       var node = getNode(ctx, true);
+
       if (!node || !lineBreakReg.test(node.nodeName)) return;
       if (node.nodeName === 'CODE') {
         node = node.parentNode;
@@ -1121,6 +1136,7 @@ var TurndownService = function () {
       // quit block mode for 2 'enter'
       e.preventDefault();
       var p = doc.createElement('p');
+
       p.innerHTML = '<br>';
       if (!node.nextSibling) node.parentNode.appendChild(p);else node.parentNode.insertBefore(p, node.nextSibling);
       focusNode(ctx, p, ctx.getRange());
@@ -1134,8 +1150,8 @@ var TurndownService = function () {
 
     // toggle toolbar on key select
     addListener(ctx, toolbar, 'click', function (e) {
-      var node = e.target,
-          action;
+      var node = e.target;
+      var action = void 0;
 
       while (node !== toolbar && !(action = node.getAttribute('data-action'))) {
         node = node.parentNode;
@@ -1147,6 +1163,7 @@ var TurndownService = function () {
 
       // create link
       var input = ctx._inputBar;
+
       if (toolbar === ctx._menu) toggleNode(input);else {
         ctx._inputActive = true;
         ctx.menu();
@@ -1197,6 +1214,7 @@ var TurndownService = function () {
       ctx._eventTargets = ctx._eventTargets || [];
       ctx._eventsCache = ctx._eventsCache || [];
       var index = ctx._eventTargets.indexOf(target);
+
       if (index < 0) index = ctx._eventTargets.push(target) - 1;
       ctx._eventsCache[index] = ctx._eventsCache[index] || {};
       ctx._eventsCache[index][type] = ctx._eventsCache[index][type] || [];
@@ -1204,6 +1222,7 @@ var TurndownService = function () {
 
       target.addEventListener(type, listener, false);
     }
+
     return ctx;
   }
 
@@ -1211,6 +1230,7 @@ var TurndownService = function () {
   function triggerListener(ctx, type) {
     if (!ctx._events.hasOwnProperty(type)) return;
     var args = slice.call(arguments, 2);
+
     utils.forEach(ctx._events[type], function (listener) {
       listener.apply(ctx, args);
     });
@@ -1218,14 +1238,18 @@ var TurndownService = function () {
 
   function removeListener(ctx, target, type, listener) {
     var events = ctx._events[type];
+
     if (!events) {
       var _index = ctx._eventTargets.indexOf(target);
+
       if (_index >= 0) events = ctx._eventsCache[_index][type];
     }
     if (!events) return ctx;
     var index = events.indexOf(listener);
+
     if (index >= 0) events.splice(index, 1);
     target.removeEventListener(type, listener, false);
+
     return ctx;
   }
 
@@ -1236,6 +1260,7 @@ var TurndownService = function () {
     if (!ctx._eventsCache) return ctx;
     utils.forEach(ctx._eventsCache, function (events, index) {
       var target = ctx._eventTargets[index];
+
       utils.forEach(events, function (listeners, type) {
         utils.forEach(listeners, function (listener) {
           target.removeEventListener(type, listener, false);
@@ -1244,6 +1269,7 @@ var TurndownService = function () {
     }, true);
     ctx._eventTargets = [];
     ctx._eventsCache = [];
+
     return ctx;
   }
 
@@ -1263,25 +1289,32 @@ var TurndownService = function () {
       if (child === parent) return true;
       child = child.parentNode;
     }
+
     return false;
   }
 
   function getNode(ctx, byRoot) {
-    var node,
-        root = ctx.config.editor;
+    var node = void 0;
+    var root = ctx.config.editor;
+
     ctx._range = ctx.getRange();
     node = ctx._range.commonAncestorContainer;
     if (!node || node === root) return null;
     while (node && node.nodeType !== 1 && node.parentNode !== root) {
       node = node.parentNode;
-    }while (node && byRoot && node.parentNode !== root) {
-      node = node.parentNode;
-    }return containsNode(root, node) ? node : null;
+    }if (byRoot) {
+      while (node && node.parentNode !== root) {
+        node = node.parentNode;
+      }
+    }
+
+    return containsNode(root, node) ? node : null;
   }
 
   // node effects
   function effectNode(ctx, el, returnAsNodeName) {
     var nodes = [];
+
     el = el || ctx.config.editor;
     while (el && el !== ctx.config.editor) {
       if (el.nodeName.match(effectNodeReg)) {
@@ -1289,13 +1322,15 @@ var TurndownService = function () {
       }
       el = el.parentNode;
     }
+
     return nodes;
   }
 
   // breakout from node
   function lineBreak(ctx, empty) {
-    var range = ctx._range = ctx.getRange(),
-        node = doc.createElement('p');
+    var range = ctx._range = ctx.getRange();
+    var node = doc.createElement('p');
+
     if (empty) ctx.config.editor.innerHTML = '';
     node.innerHTML = '<br>';
     range.insertNode(node);
@@ -1317,9 +1352,11 @@ var TurndownService = function () {
       }, true);
     } else if (node.nodeType === 3) {
       var result = urlToLink(node.nodeValue || '');
+
       if (!result.links) return;
-      var frag = doc.createDocumentFragment(),
-          div = doc.createElement('div');
+      var frag = doc.createDocumentFragment();
+      var div = doc.createElement('div');
+
       div.innerHTML = result.text;
       while (div.childNodes.length) {
         frag.appendChild(div.childNodes[0]);
@@ -1329,15 +1366,19 @@ var TurndownService = function () {
 
   function urlToLink(str) {
     var count = 0;
+
     str = str.replace(autoLinkReg.url, function (url) {
-      var realUrl = url,
-          displayUrl = url;
+      var realUrl = url;
+      var displayUrl = url;
+
       count++;
       if (url.length > autoLinkReg.maxLength) displayUrl = url.slice(0, autoLinkReg.maxLength) + '...';
       // Add http prefix if necessary
       if (!autoLinkReg.prefix.test(realUrl)) realUrl = 'http://' + realUrl;
+
       return '<a href="' + realUrl + '">' + displayUrl + '</a>';
     });
+
     return { links: count, text: str };
   }
 
@@ -1355,6 +1396,7 @@ var TurndownService = function () {
       if (!node) {
         return null;
       }
+
       return node.nextSibling;
     }
   }
@@ -1370,6 +1412,7 @@ var TurndownService = function () {
 
     // Iterate nodes until we hit the end container
     var rangeNodes = [];
+
     while (node && node !== endNode) {
       rangeNodes.push(node = nextNode(node));
     }
@@ -1384,9 +1427,8 @@ var TurndownService = function () {
     return rangeNodes;
   }
 
-  Pen = function Pen(config) {
-
-    if (!config) throw new Error('Can\'t find config');
+  var Pen = function Pen(config) {
+    if (!config) throw new Error("Can't find config");
 
     debugMode = config.debug;
 
@@ -1395,7 +1437,7 @@ var TurndownService = function () {
 
     var editor = defaults.editor;
 
-    if (!editor || editor.nodeType !== 1) throw new Error('Can\'t find editor');
+    if (!editor || editor.nodeType !== 1) throw new Error("Can't find editor");
 
     // set default class
     editor.classList.add(defaults.class);
@@ -1438,19 +1480,22 @@ var TurndownService = function () {
 
   Pen.prototype.on = function (type, listener) {
     addListener(this, this.config.editor, type, listener);
+
     return this;
   };
 
   Pen.prototype.addOnSubmitListener = function (inputElement) {
     var form = inputElement.form;
     var me = this;
-    form.addEventListener("submit", function () {
+
+    form.addEventListener('submit', function () {
       inputElement.value = me.config.editor.innerHTML;
     });
   };
 
   Pen.prototype.isEmpty = function (node) {
     node = node || this.config.editor;
+
     return !node.querySelector('img') && !node.querySelector('blockquote') && !node.querySelector('li') && !trim(node.textContent);
   };
 
@@ -1461,25 +1506,29 @@ var TurndownService = function () {
   Pen.prototype.setContent = function (html) {
     this.config.editor.innerHTML = html;
     this.cleanContent();
+
     return this;
   };
 
   Pen.prototype.checkContentChange = function () {
-    var prevContent = this._prevContent,
-        currentContent = this.getContent();
+    var prevContent = this._prevContent;
+    var currentContent = this.getContent();
+
     if (prevContent === currentContent) return;
     this._prevContent = currentContent;
     triggerListener(this, 'change', currentContent, prevContent);
   };
 
   Pen.prototype.getRange = function () {
-    var editor = this.config.editor,
-        range = selection.rangeCount && selection.getRangeAt(0);
+    var editor = this.config.editor;
+    var range = selection.rangeCount && selection.getRangeAt(0);
+
     if (!range) range = doc.createRange();
     if (!containsNode(editor, range.commonAncestorContainer)) {
       range.selectNodeContents(editor);
       range.collapse(false);
     }
+
     return range;
   };
 
@@ -1492,13 +1541,17 @@ var TurndownService = function () {
     try {
       selection.removeAllRanges();
       selection.addRange(range);
-    } catch (e) {/* IE throws error sometimes*/}
+    } catch (e) {
+      /* IE throws error sometimes */
+    }
+
     return this;
   };
 
   Pen.prototype.focus = function (focusStart) {
     if (!focusStart) this.setRange();
     this.config.editor.focus();
+
     return this;
   };
 
@@ -1521,6 +1574,7 @@ var TurndownService = function () {
     } else if (commandsReg.wrap.test(name)) {
       var selectedNodes = getRangeSelectedNodes(this.selection.getRangeAt(0));
       var selectedParagraphs = 0;
+
       utils.forEach(selectedNodes, function (item) {
         if (item.nodeName === 'P') {
           selectedParagraphs++;
@@ -1530,6 +1584,7 @@ var TurndownService = function () {
         // TODO: this.selection.focusNode works weird if FF, double click on word selects word/element to the right of target
         var effects = effectNode(this, this.selection.focusNode);
         var codeNode = void 0;
+
         utils.forEach(effects, function (item) {
           if (item.nodeName === 'CODE') {
             codeNode = item;
@@ -1539,6 +1594,7 @@ var TurndownService = function () {
           // FF does not support removeFormat
           if (!commandOverall(this, 'removeFormat')) {
             var unwrappedNodes = doc.createDocumentFragment();
+
             utils.forEach(codeNode.childNodes, function (item) {
               unwrappedNodes.appendChild(item.cloneNode());
             });
@@ -1578,12 +1634,14 @@ var TurndownService = function () {
 
     checkPlaceholder(this);
     this.checkContentChange();
+
     return this;
   };
 
   // auto link content, return content
   Pen.prototype.autoLink = function () {
     autoLink(this.config.editor);
+
     return this.getContent();
   };
 
@@ -1591,18 +1649,18 @@ var TurndownService = function () {
 
   // TODO: do not display some actions if selection is inside code block (this is how it works in Slack)
   Pen.prototype.highlight = function () {
-    var toolbar = this._toolbar || this._menu,
-        node = getNode(this);
+    var toolbar = this._toolbar || this._menu;
+    var node = getNode(this);
     // remove all highlights
+
     utils.forEach(toolbar.querySelectorAll('.active'), function (el) {
       el.classList.remove('active');
     }, true);
 
     if (!node) return this;
 
-    var effects = effectNode(this, node),
-        inputBar = this._inputBar,
-        highlight;
+    var effects = effectNode(this, node);
+    var inputBar = this._inputBar;
 
     if (inputBar && toolbar === this._menu) {
       // display link input if createlink enabled
@@ -1611,13 +1669,16 @@ var TurndownService = function () {
       inputBar.value = '';
     }
 
-    highlight = function highlight(str) {
+    var highlight = function highlight(str) {
       if (!str) return;
       var el = toolbar.querySelector('[data-action=' + str + ']');
+
       return el && el.classList.add('active');
     };
+
     utils.forEach(effects, function (item) {
       var tag = item.nodeName.toLowerCase();
+
       switch (tag) {
         case 'a':
           if (inputBar) inputBar.value = item.getAttribute('href');
@@ -1649,6 +1710,8 @@ var TurndownService = function () {
         case 'li':
           tag = 'indent';
           break;
+        default:
+          break;
       }
       highlight(tag);
     }, true);
@@ -1660,20 +1723,21 @@ var TurndownService = function () {
   Pen.prototype.menu = function () {
     if (!this._menu) return this;
     if (selection.isCollapsed) {
-      this._menu.style.display = 'none'; //hide menu
+      this._menu.style.display = 'none'; // hide menu
       this._inputActive = false;
+
       return this;
     }
     if (this._toolbar) {
       if (!this._inputBar || !this._inputActive) return this;
     }
-    var offset = this._range.getBoundingClientRect(),
-        menuPadding = 10,
-        top = offset.top - menuPadding,
-        left = offset.left + offset.width / 2,
-        menu = this._menu,
-        menuOffset = { x: 0, y: 0 },
-        stylesheet = this._stylesheet;
+    var offset = this._range.getBoundingClientRect();
+    var menuPadding = 10;
+    var top = offset.top - menuPadding;
+    var left = offset.left + offset.width / 2;
+    var menu = this._menu;
+    var menuOffset = { x: 0, y: 0 };
+    var stylesheet = this._stylesheet;
 
     // fixes some browser double click visual discontinuity
     // if the offset has no width or height it should not be used
@@ -1681,7 +1745,8 @@ var TurndownService = function () {
 
     // store the stylesheet used for positioning the menu horizontally
     if (this._stylesheet === undefined) {
-      var style = document.createElement("style");
+      var style = document.createElement('style');
+
       document.head.appendChild(style);
       this._stylesheet = stylesheet = style.sheet;
     }
@@ -1712,11 +1777,13 @@ var TurndownService = function () {
 
     menu.style.top = menuOffset.y + 'px';
     menu.style.left = menuOffset.x + 'px';
+
     return this;
   };
 
   Pen.prototype.stay = function (config) {
     var ctx = this;
+
     if (!window.onbeforeunload) {
       window.onbeforeunload = function () {
         if (!ctx._isDestroyed) return config.stayMsg;
@@ -1725,15 +1792,17 @@ var TurndownService = function () {
   };
 
   Pen.prototype.destroy = function (isAJoke) {
-    var destroy = isAJoke ? false : true,
-        attr = isAJoke ? 'setAttribute' : 'removeAttribute';
+    var destroy = !isAJoke;
+    var attr = isAJoke ? 'setAttribute' : 'removeAttribute';
 
     if (!isAJoke) {
       removeAllListeners(this);
       try {
         selection.removeAllRanges();
         if (this._menu) this._menu.parentNode.removeChild(this._menu);
-      } catch (e) {/* IE throws error sometimes*/}
+      } catch (e) {
+        /* IE throws error sometimes */
+      }
     } else {
       initToolbar(this);
       initEvents(this);
@@ -1745,19 +1814,20 @@ var TurndownService = function () {
   };
 
   Pen.prototype.rebuild = function () {
-    return this.destroy('it\'s a joke');
+    return this.destroy("it's a joke");
   };
 
   // a fallback for old browers
   root.Pen = function (config) {
-    if (!config) return utils.log('can\'t find config', true);
+    if (!config) return utils.log("can't find config", true);
 
-    var defaults = utils.merge(config),
-        klass = defaults.editor.getAttribute('class');
+    var defaults = utils.merge(config);
+    var klass = defaults.editor.getAttribute('class');
 
     klass = klass ? klass.replace(/\bpen\b/g, '') + ' pen-textarea ' + defaults.class : 'pen pen-textarea';
     defaults.editor.setAttribute('class', klass);
     defaults.editor.innerHTML = defaults.textarea;
+
     return defaults.editor;
   };
   Pen.prototype.toMd = function () {
@@ -1766,6 +1836,7 @@ var TurndownService = function () {
       codeBlockStyle: 'fenced',
       headingStyle: 'atx'
     });
+
     return turndownService.turndown(html);
   };
   // make it accessible
