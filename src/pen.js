@@ -717,8 +717,8 @@
     const editor = this.config.editor;
     let range = selection.rangeCount && selection.getRangeAt(0);
 
-    if (!range) range = doc.createRange();
-    if (!containsNode(editor, range.commonAncestorContainer)) {
+    if (!range || !containsNode(editor, range.commonAncestorContainer)) {
+      range = doc.createRange();
       range.selectNodeContents(editor);
       range.collapse(false);
     }

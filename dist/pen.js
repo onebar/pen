@@ -1523,8 +1523,8 @@ var TurndownService = function () {
     var editor = this.config.editor;
     var range = selection.rangeCount && selection.getRangeAt(0);
 
-    if (!range) range = doc.createRange();
-    if (!containsNode(editor, range.commonAncestorContainer)) {
+    if (!range || !containsNode(editor, range.commonAncestorContainer)) {
+      range = doc.createRange();
       range.selectNodeContents(editor);
       range.collapse(false);
     }
